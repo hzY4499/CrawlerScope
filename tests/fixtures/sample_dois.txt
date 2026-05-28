@@ -1,0 +1,6 @@
+ 10.1000/ABC-123  
+https://doi.org/10.1000/xyz.001
+
+not a doi
+doi:10.1000/ABC-123
+DOI 10.5555/UPPER.CASE
