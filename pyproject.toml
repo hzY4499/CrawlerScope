@@ -10,10 +10,12 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "agentscope",
+    "httpx",
     "pydantic",
     "pydantic-settings",
     "typer",
     "rich",
+    "tenacity",
     "pyyaml",
     "python-dotenv",
 ]

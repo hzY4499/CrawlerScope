@@ -6,17 +6,20 @@ from pathlib import Path
 from uuid import uuid4
 
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 
 from crawler_scope.healthcheck import check_agentscope_import
 from crawler_scope.schemas import AccessPolicy, QualityRequirements, TaskSpec
 from crawler_scope.tools.doi import load_doi_list
 from crawler_scope.tools.storage import RunStore
+from crawler_scope.workflows import resolve_dois_for_run
 
 app = typer.Typer(help="CrawlerScope command line interface.")
 console = Console()
 PROJECT_ROOT = Path(__file__).resolve().parent
 RUN_STORE = RunStore(PROJECT_ROOT)
+load_dotenv(PROJECT_ROOT / ".env")
 
 
 @app.command()
@@ -117,6 +120,37 @@ def import_dois(path: Path) -> None:
     console.print(f"invalid: {stats['invalid']}")
     console.print(f"duplicate: {stats['duplicate']}")
     console.print(f"run_id: {stats['run_id']}")
+
+
+@app.command("resolve-dois")
+def resolve_dois(run_id: str = typer.Option(..., "--run-id")) -> None:
+    """Resolve metadata for the valid DOI list in an existing run."""
+    try:
+        summary = resolve_dois_for_run(run_id)
+    except FileNotFoundError as exc:
+        console.print(str(exc))
+        raise typer.Exit(code=1) from exc
+
+    output_files = [
+        "artifacts/crossref_results.jsonl",
+        "artifacts/openalex_results.jsonl",
+        "artifacts/semantic_scholar_results.jsonl",
+        "artifacts/unpaywall_results.jsonl",
+        "artifacts/metadata_source_results.jsonl",
+        "artifacts/doi_resolution_results.jsonl",
+        "artifacts/papers_metadata_merged.jsonl",
+        "artifacts/access_hints.jsonl",
+        "artifacts/papers_metadata.csv",
+        "artifacts/metadata_summary.json",
+    ]
+
+    for key, value in summary.items():
+        console.print(f"{key}: {value}")
+
+    run_dir = RUN_STORE.get_run_dir(run_id)
+    console.print("output_files:")
+    for relative_path in output_files:
+        console.print(f"- {run_dir / relative_path}")
 
 
 def _build_task_spec(

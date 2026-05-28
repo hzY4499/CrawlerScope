@@ -11,6 +11,9 @@ class PaperRecord(BaseModel):
 
     paper_id: str
     doi: str
+    openalex_id: str | None = None
+    semantic_scholar_id: str | None = None
+    arxiv_id: str | None = None
     title: str | None = None
     authors: list[str] = Field(default_factory=list)
     year: int | None = None

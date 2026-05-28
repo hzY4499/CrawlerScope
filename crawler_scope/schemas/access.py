@@ -57,3 +57,18 @@ class AccessDecision(BaseModel):
     requires_login: bool = False
     reason: str | None = None
     checked_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class AccessHint(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    doi: str
+    has_open_pdf: bool = False
+    open_pdf_urls: list[str] = Field(default_factory=list)
+    oa_landing_pages: list[str] = Field(default_factory=list)
+    publisher_urls: list[str] = Field(default_factory=list)
+    license: str | None = None
+    evidence_sources: list[str] = Field(default_factory=list)
+    next_stage: Literal["download_open_pdf", "resolve_access", "manual_review"] = (
+        "resolve_access"
+    )
