@@ -13,7 +13,11 @@ from crawler_scope.healthcheck import check_agentscope_import
 from crawler_scope.schemas import AccessPolicy, QualityRequirements, TaskSpec
 from crawler_scope.tools.doi import load_doi_list
 from crawler_scope.tools.storage import RunStore
-from crawler_scope.workflows import plan_access_for_run, resolve_dois_for_run
+from crawler_scope.workflows import (
+    download_open_pdfs_for_run,
+    plan_access_for_run,
+    resolve_dois_for_run,
+)
 
 app = typer.Typer(help="CrawlerScope command line interface.")
 console = Console()
@@ -197,6 +201,30 @@ def plan_access(
     console.print("output_files:")
     for relative_path in output_files:
         console.print(f"- {run_dir / relative_path}")
+
+
+@app.command("download-open-pdfs")
+def download_open_pdfs(
+    run_id: str = typer.Option(..., "--run-id"),
+    timeout_seconds: float = typer.Option(30.0, "--timeout-seconds"),
+    output_dir: Path | None = typer.Option(None, "--output-dir"),
+) -> None:
+    """Download only open-access PDF candidates for a run."""
+    try:
+        summary = download_open_pdfs_for_run(
+            run_id,
+            output_dir=output_dir,
+            timeout_seconds=timeout_seconds,
+        )
+    except FileNotFoundError as exc:
+        console.print(str(exc))
+        raise typer.Exit(code=1) from exc
+
+    run_dir = RUN_STORE.get_run_dir(run_id)
+    for key, value in summary.items():
+        console.print(f"{key}: {value}")
+    console.print(f"download_results: {run_dir / 'artifacts/download_results.jsonl'}")
+    console.print(f"pdf_output_dir: {summary['output_dir']}")
 
 
 def _build_task_spec(
