@@ -17,6 +17,7 @@ from crawler_scope.workflows import (
     download_open_pdfs_for_run,
     parse_downloaded_pdfs_for_run,
     plan_access_for_run,
+    report_run,
     resolve_dois_for_run,
 )
 
@@ -248,6 +249,19 @@ def parse_pdfs(
         console.print(f"{key}: {value}")
     console.print(f"parse_results: {run_dir / 'artifacts/parse_results.jsonl'}")
     console.print(f"parsed_text_output_dir: {summary['output_dir']}")
+
+
+@app.command("report-run")
+def report_run_command(run_id: str = typer.Option(..., "--run-id")) -> None:
+    """Build the final run report and client deliverable files."""
+    summary = report_run(run_id)
+    run_dir = RUN_STORE.get_run_dir(run_id)
+    for key, value in summary.items():
+        console.print(f"{key}: {value}")
+    console.print(f"final_report_json: {run_dir / 'artifacts/final_report.json'}")
+    console.print(f"final_report_md: {run_dir / 'artifacts/final_report.md'}")
+    console.print(f"final_papers_csv: {run_dir / 'artifacts/final_papers.csv'}")
+    console.print(f"client_summary_md: {run_dir / 'artifacts/client_deliverable_summary.md'}")
 
 
 def _build_task_spec(
