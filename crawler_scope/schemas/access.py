@@ -52,10 +52,28 @@ class AccessDecision(BaseModel):
 
     paper_id: str | None = None
     doi: str
+    title: str | None = None
     status: Literal["allowed", "blocked", "manual_review"]
+    access_type: Literal[
+        "open_access",
+        "user_authenticated",
+        "manual_required",
+        "unavailable",
+    ]
+    download_strategy: Literal[
+        "direct_pdf",
+        "browser_session",
+        "manual_upload",
+        "skip",
+    ]
     access_url: str | None = None
+    access_urls: list[str] = Field(default_factory=list)
+    pdf_urls: list[str] = Field(default_factory=list)
+    oa_landing_pages: list[str] = Field(default_factory=list)
+    institution_domains: list[str] = Field(default_factory=list)
     requires_login: bool = False
     reason: str | None = None
+    evidence_sources: list[str] = Field(default_factory=list)
     checked_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
