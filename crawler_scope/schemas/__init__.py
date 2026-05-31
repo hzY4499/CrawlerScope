@@ -3,6 +3,7 @@ from .doi import DOIInputItem, DOIResolutionResult
 from .download import DownloadResult
 from .failure import FailureRecord
 from .metadata import MetadataSourceResult
+from .parse import ParseResult
 from .paper import PaperRecord
 from .quality import QualityReport, QualityRequirements
 from .task_spec import TaskSpec, TaskType
@@ -17,6 +18,7 @@ __all__ = [
     "FailureRecord",
     "InstitutionAccessProfile",
     "MetadataSourceResult",
+    "ParseResult",
     "PaperRecord",
     "QualityReport",
     "QualityRequirements",

@@ -15,6 +15,7 @@ from crawler_scope.tools.doi import load_doi_list
 from crawler_scope.tools.storage import RunStore
 from crawler_scope.workflows import (
     download_open_pdfs_for_run,
+    parse_downloaded_pdfs_for_run,
     plan_access_for_run,
     resolve_dois_for_run,
 )
@@ -225,6 +226,28 @@ def download_open_pdfs(
         console.print(f"{key}: {value}")
     console.print(f"download_results: {run_dir / 'artifacts/download_results.jsonl'}")
     console.print(f"pdf_output_dir: {summary['output_dir']}")
+
+
+@app.command("parse-pdfs")
+def parse_pdfs(
+    run_id: str = typer.Option(..., "--run-id"),
+    output_dir: Path | None = typer.Option(None, "--output-dir"),
+) -> None:
+    """Parse already-downloaded PDFs into plain text and basic structure."""
+    try:
+        summary = parse_downloaded_pdfs_for_run(
+            run_id,
+            output_dir=output_dir,
+        )
+    except FileNotFoundError as exc:
+        console.print(str(exc))
+        raise typer.Exit(code=1) from exc
+
+    run_dir = RUN_STORE.get_run_dir(run_id)
+    for key, value in summary.items():
+        console.print(f"{key}: {value}")
+    console.print(f"parse_results: {run_dir / 'artifacts/parse_results.jsonl'}")
+    console.print(f"parsed_text_output_dir: {summary['output_dir']}")
 
 
 def _build_task_spec(

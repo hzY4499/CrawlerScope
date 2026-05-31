@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 dependencies = [
     "agentscope",
     "httpx",
+    "PyMuPDF",
     "pydantic",
     "pydantic-settings",
     "typer",
