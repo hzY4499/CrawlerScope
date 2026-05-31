@@ -30,22 +30,22 @@ def test_resolve_dois_for_run_generates_artifacts(tmp_path: Path, monkeypatch) -
     monkeypatch.setattr(
         doi_resolve_workflow,
         "fetch_crossref_by_doi",
-        lambda doi, contact_email=None: _mock_result(doi, "crossref"),
+        lambda doi, contact_email=None, **kwargs: _mock_result(doi, "crossref"),
     )
     monkeypatch.setattr(
         doi_resolve_workflow,
         "fetch_openalex_by_doi",
-        lambda doi, contact_email=None: _mock_result(doi, "openalex"),
+        lambda doi, contact_email=None, **kwargs: _mock_result(doi, "openalex"),
     )
     monkeypatch.setattr(
         doi_resolve_workflow,
         "fetch_semantic_scholar_by_doi",
-        lambda doi, api_key=None: _mock_result(doi, "semantic_scholar"),
+        lambda doi, api_key=None, **kwargs: _mock_result(doi, "semantic_scholar"),
     )
     monkeypatch.setattr(
         doi_resolve_workflow,
         "fetch_unpaywall_by_doi",
-        lambda doi, contact_email=None: _mock_result(doi, "unpaywall", with_pdf=True),
+        lambda doi, contact_email=None, **kwargs: _mock_result(doi, "unpaywall", with_pdf=True),
     )
 
     summary = doi_resolve_workflow.resolve_dois_for_run(run_id)

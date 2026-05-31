@@ -40,6 +40,7 @@ def test_fetch_semantic_scholar_by_doi_success(monkeypatch) -> None:
     result = semantic_scholar_client.fetch_semantic_scholar_by_doi(
         "10.1000/test",
         api_key="secret-key",
+        use_cache=False,
     )
 
     assert result.status == "success"

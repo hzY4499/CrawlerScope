@@ -44,6 +44,7 @@ def test_fetch_unpaywall_by_doi_success(monkeypatch) -> None:
     result = unpaywall_client.fetch_unpaywall_by_doi(
         "10.1000/test",
         contact_email="team@example.org",
+        use_cache=False,
     )
 
     assert result.status == "success"

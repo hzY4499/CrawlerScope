@@ -55,7 +55,7 @@ def test_fetch_openalex_by_doi_success(monkeypatch) -> None:
         ),
     )
 
-    result = openalex_client.fetch_openalex_by_doi("10.1000/test")
+    result = openalex_client.fetch_openalex_by_doi("10.1000/test", use_cache=False)
 
     assert result.status == "success"
     assert result.paper is not None

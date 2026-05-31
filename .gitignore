@@ -6,6 +6,8 @@ __pycache__/
 
 # runtime outputs
 runs/
+data/input/
+data/cache/
 data/raw/
 data/parsed/
 data/reports/

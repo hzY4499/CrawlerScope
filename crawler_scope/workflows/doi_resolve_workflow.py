@@ -18,7 +18,8 @@ from crawler_scope.tools.academic import (
     fetch_unpaywall_by_doi,
     merge_metadata_results,
 )
-from crawler_scope.tools.storage import RunStore
+from crawler_scope.tools.storage import CacheStore, RunStore
+from crawler_scope.utils import SimpleRateLimiter
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RUN_STORE = RunStore(PROJECT_ROOT)
@@ -30,7 +31,13 @@ SOURCE_FILENAMES = {
 }
 
 
-def resolve_dois_for_run(run_id: str) -> dict:
+def resolve_dois_for_run(
+    run_id: str,
+    *,
+    use_cache: bool = True,
+    cache_store: CacheStore | None = None,
+    rate_limiter: SimpleRateLimiter | None = None,
+) -> dict:
     load_dotenv(PROJECT_ROOT / ".env")
 
     run_dir = RUN_STORE.get_run_dir(run_id)
@@ -41,6 +48,10 @@ def resolve_dois_for_run(run_id: str) -> dict:
     dois = [line.strip() for line in valid_dois_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     contact_email = os.getenv("CONTACT_EMAIL") or None
     semantic_scholar_api_key = os.getenv("SEMANTIC_SCHOLAR_API_KEY") or None
+    resolved_cache_store = cache_store or CacheStore(PROJECT_ROOT / "data" / "cache" / "api")
+    resolved_rate_limiter = rate_limiter or SimpleRateLimiter.from_yaml(
+        PROJECT_ROOT / "configs" / "rate_limits.yaml"
+    )
 
     RUN_STORE.append_trace(
         run_id,
@@ -48,9 +59,10 @@ def resolve_dois_for_run(run_id: str) -> dict:
             "event": "doi_resolve_started",
             "timestamp": _iso_now(),
             "total_dois": len(dois),
+            "use_cache": use_cache,
         },
     )
-    RUN_STORE.mark_status(run_id, "resolving_metadata", total_dois=len(dois))
+    RUN_STORE.mark_status(run_id, "resolving_metadata", total_dois=len(dois), use_cache=use_cache)
 
     per_source_results: dict[str, list[MetadataSourceResult]] = {
         source: [] for source in SOURCE_FILENAMES
@@ -62,18 +74,48 @@ def resolve_dois_for_run(run_id: str) -> dict:
     source_success_counts = {source: 0 for source in SOURCE_FILENAMES}
     has_open_pdf = 0
     failed_all_sources = 0
+    cache_hits = 0
+    cache_misses = 0
+    rate_limited_count = 0
+    missing_contact_email_count = 0
 
     fetchers: list[tuple[str, Callable[[str], MetadataSourceResult]]] = [
-        ("crossref", lambda doi: fetch_crossref_by_doi(doi, contact_email=contact_email)),
-        ("openalex", lambda doi: fetch_openalex_by_doi(doi, contact_email=contact_email)),
+        (
+            "crossref",
+            lambda doi: fetch_crossref_by_doi(
+                doi,
+                contact_email=contact_email,
+                use_cache=use_cache,
+                cache_store=resolved_cache_store,
+            ),
+        ),
+        (
+            "openalex",
+            lambda doi: fetch_openalex_by_doi(
+                doi,
+                contact_email=contact_email,
+                use_cache=use_cache,
+                cache_store=resolved_cache_store,
+            ),
+        ),
         (
             "semantic_scholar",
             lambda doi: fetch_semantic_scholar_by_doi(
                 doi,
                 api_key=semantic_scholar_api_key,
+                use_cache=use_cache,
+                cache_store=resolved_cache_store,
             ),
         ),
-        ("unpaywall", lambda doi: fetch_unpaywall_by_doi(doi, contact_email=contact_email)),
+        (
+            "unpaywall",
+            lambda doi: fetch_unpaywall_by_doi(
+                doi,
+                contact_email=contact_email,
+                use_cache=use_cache,
+                cache_store=resolved_cache_store,
+            ),
+        ),
     ]
 
     for doi in dois:
@@ -88,15 +130,43 @@ def resolve_dois_for_run(run_id: str) -> dict:
 
         doi_results: list[MetadataSourceResult] = []
         for source, fetcher in fetchers:
+            cache_key = resolved_cache_store.make_key(source, doi)
+            cache_hit = bool(use_cache and resolved_cache_store.has(source, cache_key))
             RUN_STORE.append_trace(
                 run_id,
                 {
-                    "event": "metadata_source_started",
+                    "event": "metadata_query_start",
                     "timestamp": _iso_now(),
                     "doi": doi,
                     "source": source,
+                    "use_cache": use_cache,
+                    "cache_hit": cache_hit,
                 },
             )
+            if cache_hit:
+                cache_hits += 1
+                RUN_STORE.append_trace(
+                    run_id,
+                    {
+                        "event": "metadata_query_cache_hit",
+                        "timestamp": _iso_now(),
+                        "doi": doi,
+                        "source": source,
+                    },
+                )
+            else:
+                cache_misses += 1
+                RUN_STORE.append_trace(
+                    run_id,
+                    {
+                        "event": "metadata_query_cache_miss",
+                        "timestamp": _iso_now(),
+                        "doi": doi,
+                        "source": source,
+                    },
+                )
+                resolved_rate_limiter.wait(source)
+
             try:
                 result = fetcher(doi)
             except Exception as exc:
@@ -110,6 +180,21 @@ def resolve_dois_for_run(run_id: str) -> dict:
 
             if result.status == "success":
                 source_success_counts[source] += 1
+            if result.error_type == "rate_limited":
+                rate_limited_count += 1
+            if result.error_type == "missing_contact_email":
+                missing_contact_email_count += 1
+            if use_cache and not cache_hit and result.status in {"success", "not_found"}:
+                RUN_STORE.append_trace(
+                    run_id,
+                    {
+                        "event": "metadata_query_cache_write",
+                        "timestamp": _iso_now(),
+                        "doi": doi,
+                        "source": source,
+                        "status": result.status,
+                    },
+                )
 
             stored_result = _persist_result(run_id, result)
             per_source_results[source].append(stored_result)
@@ -119,11 +204,14 @@ def resolve_dois_for_run(run_id: str) -> dict:
             RUN_STORE.append_trace(
                 run_id,
                 {
-                    "event": "metadata_source_completed",
+                    "event": "metadata_query_success"
+                    if stored_result.status == "success"
+                    else "metadata_query_failed",
                     "timestamp": _iso_now(),
                     "doi": doi,
                     "source": source,
                     "status": stored_result.status,
+                    "error_type": stored_result.error_type,
                     "raw_path": stored_result.raw_path,
                 },
             )
@@ -208,6 +296,10 @@ def resolve_dois_for_run(run_id: str) -> dict:
         "merged_success": len(merged_papers),
         "has_open_pdf": has_open_pdf,
         "failed_all_sources": failed_all_sources,
+        "cache_hits": cache_hits,
+        "cache_misses": cache_misses,
+        "rate_limited_count": rate_limited_count,
+        "missing_contact_email_count": missing_contact_email_count,
     }
     RUN_STORE.save_json(run_id, "artifacts/metadata_summary.json", summary)
     RUN_STORE.mark_status(run_id, "completed", summary=summary)

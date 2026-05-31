@@ -1,0 +1,15 @@
+crossref:
+  min_delay_seconds: 0.2
+  max_retries: 3
+
+openalex:
+  min_delay_seconds: 0.2
+  max_retries: 3
+
+semantic_scholar:
+  min_delay_seconds: 1.0
+  max_retries: 3
+
+unpaywall:
+  min_delay_seconds: 0.5
+  max_retries: 3

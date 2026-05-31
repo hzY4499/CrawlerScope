@@ -7,12 +7,27 @@ import httpx
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from crawler_scope.schemas import MetadataSourceResult, PaperRecord
+from crawler_scope.tools.storage import CacheStore
 
 API_TIMEOUT = httpx.Timeout(20.0, connect=10.0)
 API_BASE_URL = "https://api.crossref.org/works"
+SOURCE = "crossref"
 
 
-def fetch_crossref_by_doi(doi: str, contact_email: str | None = None) -> MetadataSourceResult:
+def fetch_crossref_by_doi(
+    doi: str,
+    contact_email: str | None = None,
+    use_cache: bool = True,
+    cache_store: CacheStore | None = None,
+) -> MetadataSourceResult:
+    cache_key: str | None = None
+    if use_cache:
+        cache_store = cache_store or CacheStore()
+        cache_key = cache_store.make_key(SOURCE, doi)
+        cached = cache_store.get_json(SOURCE, cache_key)
+        if cached is not None:
+            return _result_from_cached(doi, cached)
+
     params: dict[str, str] = {}
     if contact_email:
         params["mailto"] = contact_email
@@ -40,11 +55,12 @@ def fetch_crossref_by_doi(doi: str, contact_email: str | None = None) -> Metadat
         )
 
     if response.status_code == 404:
-        return MetadataSourceResult(doi=doi, source="crossref", status="not_found")
+        _cache_response(cache_store, cache_key, response.status_code, _safe_json(response))
+        return MetadataSourceResult(doi=doi, source=SOURCE, status="not_found")
     if response.status_code == 429:
         return MetadataSourceResult(
             doi=doi,
-            source="crossref",
+            source=SOURCE,
             status="failed",
             error_type="rate_limited",
             error_message="Crossref rate limited the request.",
@@ -52,13 +68,34 @@ def fetch_crossref_by_doi(doi: str, contact_email: str | None = None) -> Metadat
     if response.status_code >= 400:
         return MetadataSourceResult(
             doi=doi,
-            source="crossref",
+            source=SOURCE,
             status="failed",
             error_type=f"http_{response.status_code}",
             error_message=response.text[:500],
         )
 
     payload = response.json()
+    _cache_response(cache_store, cache_key, response.status_code, payload)
+    return _paper_from_payload(doi, payload)
+
+
+def _result_from_cached(doi: str, cached: dict[str, Any]) -> MetadataSourceResult:
+    status_code = cached.get("status_code")
+    payload = cached.get("payload")
+    if status_code == 404:
+        return MetadataSourceResult(doi=doi, source=SOURCE, status="not_found")
+    if status_code == 200 and isinstance(payload, dict):
+        return _paper_from_payload(doi, payload)
+    return MetadataSourceResult(
+        doi=doi,
+        source=SOURCE,
+        status="failed",
+        error_type="cache_error",
+        error_message="Cached Crossref response is not usable.",
+    )
+
+
+def _paper_from_payload(doi: str, payload: dict[str, Any]) -> MetadataSourceResult:
     message = payload.get("message", {})
     paper = PaperRecord(
         paper_id=f"doi:{doi}",
@@ -79,7 +116,34 @@ def fetch_crossref_by_doi(doi: str, contact_email: str | None = None) -> Metadat
         license=_extract_crossref_license(message),
         raw=message,
     )
-    return MetadataSourceResult(doi=doi, source="crossref", status="success", paper=paper)
+    return MetadataSourceResult(doi=doi, source=SOURCE, status="success", paper=paper)
+
+
+def _cache_response(
+    cache_store: CacheStore | None,
+    cache_key: str | None,
+    status_code: int,
+    payload: dict[str, Any],
+) -> None:
+    if cache_store is None or cache_key is None:
+        return
+    cache_store.set_json(
+        SOURCE,
+        cache_key,
+        {
+            "source": SOURCE,
+            "status_code": status_code,
+            "payload": payload,
+        },
+    )
+
+
+def _safe_json(response: httpx.Response) -> dict[str, Any]:
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = {"text": response.text[:500]}
+    return payload if isinstance(payload, dict) else {"payload": payload}
 
 
 @retry(

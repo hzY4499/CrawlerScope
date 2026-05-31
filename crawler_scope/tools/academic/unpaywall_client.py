@@ -7,23 +7,35 @@ import httpx
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from crawler_scope.schemas import MetadataSourceResult, PaperRecord
+from crawler_scope.tools.storage import CacheStore
 
 API_TIMEOUT = httpx.Timeout(20.0, connect=10.0)
 API_BASE_URL = "https://api.unpaywall.org/v2"
+SOURCE = "unpaywall"
 
 
 def fetch_unpaywall_by_doi(
     doi: str,
     contact_email: str | None,
+    use_cache: bool = True,
+    cache_store: CacheStore | None = None,
 ) -> MetadataSourceResult:
     if not contact_email:
         return MetadataSourceResult(
             doi=doi,
-            source="unpaywall",
+            source=SOURCE,
             status="failed",
             error_type="missing_contact_email",
             error_message="CONTACT_EMAIL is required for Unpaywall requests.",
         )
+
+    cache_key: str | None = None
+    if use_cache:
+        cache_store = cache_store or CacheStore()
+        cache_key = cache_store.make_key(SOURCE, doi)
+        cached = cache_store.get_json(SOURCE, cache_key)
+        if cached is not None:
+            return _result_from_cached(doi, cached)
 
     url = f"{API_BASE_URL}/{quote(doi, safe='')}"
     headers = {"User-Agent": f"CrawlerScope/0.1.0 (mailto:{contact_email})"}
@@ -48,11 +60,12 @@ def fetch_unpaywall_by_doi(
         )
 
     if response.status_code == 404:
-        return MetadataSourceResult(doi=doi, source="unpaywall", status="not_found")
+        _cache_response(cache_store, cache_key, response.status_code, _safe_json(response))
+        return MetadataSourceResult(doi=doi, source=SOURCE, status="not_found")
     if response.status_code == 429:
         return MetadataSourceResult(
             doi=doi,
-            source="unpaywall",
+            source=SOURCE,
             status="failed",
             error_type="rate_limited",
             error_message="Unpaywall rate limited the request.",
@@ -60,13 +73,34 @@ def fetch_unpaywall_by_doi(
     if response.status_code >= 400:
         return MetadataSourceResult(
             doi=doi,
-            source="unpaywall",
+            source=SOURCE,
             status="failed",
             error_type=f"http_{response.status_code}",
             error_message=response.text[:500],
         )
 
     payload = response.json()
+    _cache_response(cache_store, cache_key, response.status_code, payload)
+    return _paper_from_payload(doi, payload)
+
+
+def _result_from_cached(doi: str, cached: dict[str, Any]) -> MetadataSourceResult:
+    status_code = cached.get("status_code")
+    payload = cached.get("payload")
+    if status_code == 404:
+        return MetadataSourceResult(doi=doi, source=SOURCE, status="not_found")
+    if status_code == 200 and isinstance(payload, dict):
+        return _paper_from_payload(doi, payload)
+    return MetadataSourceResult(
+        doi=doi,
+        source=SOURCE,
+        status="failed",
+        error_type="cache_error",
+        error_message="Cached Unpaywall response is not usable.",
+    )
+
+
+def _paper_from_payload(doi: str, payload: dict[str, Any]) -> MetadataSourceResult:
     best_oa_location = payload.get("best_oa_location") or {}
     oa_locations = payload.get("oa_locations") or []
     paper = PaperRecord(
@@ -116,7 +150,34 @@ def fetch_unpaywall_by_doi(
         ),
         raw=payload,
     )
-    return MetadataSourceResult(doi=doi, source="unpaywall", status="success", paper=paper)
+    return MetadataSourceResult(doi=doi, source=SOURCE, status="success", paper=paper)
+
+
+def _cache_response(
+    cache_store: CacheStore | None,
+    cache_key: str | None,
+    status_code: int,
+    payload: dict[str, Any],
+) -> None:
+    if cache_store is None or cache_key is None:
+        return
+    cache_store.set_json(
+        SOURCE,
+        cache_key,
+        {
+            "source": SOURCE,
+            "status_code": status_code,
+            "payload": payload,
+        },
+    )
+
+
+def _safe_json(response: httpx.Response) -> dict[str, Any]:
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = {"text": response.text[:500]}
+    return payload if isinstance(payload, dict) else {"payload": payload}
 
 
 @retry(

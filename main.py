@@ -19,6 +19,7 @@ from crawler_scope.workflows import (
     plan_access_for_run,
     report_run,
     resolve_dois_for_run,
+    run_full_smoke_test,
 )
 
 app = typer.Typer(help="CrawlerScope command line interface.")
@@ -264,6 +265,41 @@ def report_run_command(run_id: str = typer.Option(..., "--run-id")) -> None:
     console.print(f"client_summary_md: {run_dir / 'artifacts/client_deliverable_summary.md'}")
 
 
+@app.command("smoke-run")
+def smoke_run(
+    input_path: Path,
+    max_items: int | None = typer.Option(None, "--max-items"),
+    allow_manual_upload: bool = typer.Option(
+        True,
+        "--allow-manual-upload/--no-allow-manual-upload",
+    ),
+    use_cache: bool = typer.Option(True, "--use-cache/--no-use-cache"),
+) -> None:
+    """Run the DOI-first pipeline on a small local sample."""
+    try:
+        summary = run_full_smoke_test(
+            input_path,
+            allow_user_login=False,
+            allow_manual_upload=allow_manual_upload,
+            max_items=max_items,
+            use_cache=use_cache,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        console.print(str(exc))
+        raise typer.Exit(code=1) from exc
+
+    console.print(f"run_id: {summary['run_id']}")
+    report_paths = summary["report_paths"]
+    console.print(f"final_papers.csv: {report_paths['final_papers_csv']}")
+    console.print(
+        f"client_deliverable_summary.md: {report_paths['client_deliverable_summary_md']}"
+    )
+    _print_summary("metadata_summary", summary["metadata_summary"])
+    _print_summary("access_plan_summary", summary["access_plan_summary"])
+    _print_summary("download_summary", summary["download_summary"])
+    _print_summary("pdf_parse_summary", summary["pdf_parse_summary"])
+
+
 def _build_task_spec(
     *,
     task_type: str,
@@ -286,6 +322,14 @@ def _build_task_spec(
 
 def _join_lines(values: list[str]) -> str:
     return "".join(f"{value}\n" for value in values)
+
+
+def _print_summary(name: str, summary: dict) -> None:
+    console.print(f"{name}:")
+    for key, value in summary.items():
+        if isinstance(value, (dict, list)):
+            continue
+        console.print(f"  {key}: {value}")
 
 
 if __name__ == "__main__":

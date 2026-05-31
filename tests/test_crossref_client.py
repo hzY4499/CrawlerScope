@@ -45,6 +45,7 @@ def test_fetch_crossref_by_doi_success(monkeypatch) -> None:
     result = crossref_client.fetch_crossref_by_doi(
         "10.1000/test",
         contact_email="team@example.org",
+        use_cache=False,
     )
 
     assert result.status == "success"
@@ -70,7 +71,7 @@ def test_fetch_crossref_by_doi_not_found(monkeypatch) -> None:
         ),
     )
 
-    result = crossref_client.fetch_crossref_by_doi("10.1000/missing")
+    result = crossref_client.fetch_crossref_by_doi("10.1000/missing", use_cache=False)
 
     assert result.status == "not_found"
     assert result.paper is None
