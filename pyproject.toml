@@ -12,6 +12,7 @@ dependencies = [
     "agentscope",
     "beautifulsoup4",
     "httpx",
+    "playwright",
     "PyMuPDF",
     "pydantic",
     "pydantic-settings",

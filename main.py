@@ -11,9 +11,11 @@ from rich.console import Console
 
 from crawler_scope.healthcheck import check_agentscope_import
 from crawler_scope.schemas import AccessPolicy, QualityRequirements, TaskSpec
+from crawler_scope.tools.browser import setup_interactive_browser_session
 from crawler_scope.tools.doi import load_doi_list
 from crawler_scope.tools.storage import RunStore
 from crawler_scope.workflows import (
+    collect_wiley_supplements_with_session_for_run,
     download_open_pdfs_for_run,
     parse_downloaded_pdfs_for_run,
     plan_access_for_run,
@@ -325,6 +327,61 @@ def collect_wiley_supplements(
         console.print(f"{key}: {value}")
     console.print(
         f"wiley_supplement_report.csv: {run_dir / 'artifacts/wiley_supplement_report.csv'}"
+    )
+    console.print(f"output_dir: {output_dir or (PROJECT_ROOT / 'data' / 'raw' / 'supplements')}")
+
+
+@app.command("setup-wiley-session")
+def setup_wiley_session(
+    profile: str = typer.Option("wiley-default", "--profile"),
+    start_url: str = typer.Option("https://onlinelibrary.wiley.com", "--start-url"),
+) -> None:
+    """Open a headful browser so the user can create a Wiley session manually."""
+    session_profile = setup_interactive_browser_session(
+        profile_name=profile,
+        start_url=start_url,
+        publisher="wiley",
+    )
+    console.print(f"profile_name: {session_profile.profile_name}")
+    console.print(f"storage_state_path: {session_profile.storage_state_path}")
+    console.print(f"status: {session_profile.status}")
+    if session_profile.notes:
+        console.print(f"notes: {session_profile.notes}")
+    if session_profile.status != "active":
+        raise typer.Exit(code=1)
+
+
+@app.command("collect-wiley-supplements-browser")
+def collect_wiley_supplements_browser(
+    run_id: str = typer.Option(..., "--run-id"),
+    profile: str = typer.Option("wiley-default", "--profile"),
+    storage_state: Path | None = typer.Option(None, "--storage-state"),
+    headless: bool = typer.Option(True, "--headless/--headful"),
+    output_dir: Path | None = typer.Option(None, "--output-dir"),
+    max_articles: int | None = typer.Option(None, "--max-articles"),
+) -> None:
+    """Reuse a manually prepared Wiley browser session for supplement collection."""
+    try:
+        summary = collect_wiley_supplements_with_session_for_run(
+            run_id,
+            profile_name=profile,
+            storage_state_path=storage_state,
+            output_dir=output_dir,
+            max_articles=max_articles,
+            headless=headless,
+        )
+    except FileNotFoundError as exc:
+        console.print(str(exc))
+        raise typer.Exit(code=1) from exc
+
+    run_dir = RUN_STORE.get_run_dir(run_id)
+    for key, value in summary.items():
+        console.print(f"{key}: {value}")
+    console.print(
+        f"wiley_browser_supplement_report.csv: {run_dir / 'artifacts/wiley_browser_supplement_report.csv'}"
+    )
+    console.print(
+        f"wiley_manual_handoff.csv: {run_dir / 'artifacts/wiley_manual_handoff.csv'}"
     )
     console.print(f"output_dir: {output_dir or (PROJECT_ROOT / 'data' / 'raw' / 'supplements')}")
 

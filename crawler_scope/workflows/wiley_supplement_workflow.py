@@ -239,7 +239,13 @@ def collect_wiley_supplements_for_run(
         extensions_by_count=dict(extensions_by_count),
     )
     RUN_STORE.save_json(run_id, "artifacts/wiley_supplement_summary.json", summary)
-    _write_report_csv(run_id, supplement_records, download_results)
+    _write_report_csv(
+        run_id,
+        supplement_records,
+        download_results,
+        artifact_path="artifacts/wiley_supplement_report.csv",
+        store=RUN_STORE,
+    )
     RUN_STORE.mark_status(
         run_id,
         "completed",
@@ -319,9 +325,13 @@ def _write_report_csv(
     run_id: str,
     records: list[SupplementRecord],
     results: list[SupplementDownloadResult],
+    *,
+    artifact_path: str,
+    store: RunStore | None = None,
 ) -> None:
     records_by_url = {record.supplement_url: record for record in records}
-    target = RUN_STORE.get_run_dir(run_id) / "artifacts" / "wiley_supplement_report.csv"
+    target_store = store or RUN_STORE
+    target = target_store.get_run_dir(run_id) / artifact_path
     target.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "doi",

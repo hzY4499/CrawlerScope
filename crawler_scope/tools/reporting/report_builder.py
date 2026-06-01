@@ -45,6 +45,14 @@ ARTIFACT_FILENAMES = [
     "wiley_supplement_failed.jsonl",
     "wiley_supplement_summary.json",
     "wiley_supplement_report.csv",
+    "wiley_browser_supplement_records.jsonl",
+    "wiley_browser_supplement_download_results.jsonl",
+    "wiley_browser_supplement_success.jsonl",
+    "wiley_browser_supplement_failed.jsonl",
+    "wiley_browser_supplement_summary.json",
+    "wiley_browser_supplement_report.csv",
+    "wiley_manual_handoff.jsonl",
+    "wiley_manual_handoff.csv",
 ]
 
 
@@ -65,6 +73,8 @@ class ArtifactSnapshot:
     download_results: list[DownloadResult]
     parse_results: list[ParseResult]
     supplement_summary: dict[str, Any] | None
+    browser_supplement_summary: dict[str, Any] | None
+    manual_handoff_count: int
     artifacts_present: dict[str, bool]
 
 
@@ -131,6 +141,12 @@ def _load_snapshot(artifacts_dir: Path) -> ArtifactSnapshot:
         download_results=_load_jsonl(artifacts_dir / "download_results.jsonl", DownloadResult),
         parse_results=_load_jsonl(artifacts_dir / "parse_results.jsonl", ParseResult),
         supplement_summary=_load_json_file(artifacts_dir / "wiley_supplement_summary.json"),
+        browser_supplement_summary=_load_json_file(
+            artifacts_dir / "wiley_browser_supplement_summary.json"
+        ),
+        manual_handoff_count=_count_nonempty_jsonl(
+            artifacts_dir / "wiley_manual_handoff.jsonl"
+        ),
         artifacts_present=artifacts_present,
     )
 
@@ -284,6 +300,8 @@ def _build_summary(
         "failure_type_counts": failure_counts,
         "artifacts_present": snapshot.artifacts_present,
         "supplement_summary": snapshot.supplement_summary,
+        "browser_supplement_summary": snapshot.browser_supplement_summary,
+        "manual_handoff_count": snapshot.manual_handoff_count,
     }
 
 
@@ -322,6 +340,22 @@ def _build_final_report_md(report: RunReport) -> str:
                 f"- downloaded_failed: {supplement_summary.get('downloaded_failed', 0)}",
                 f"- extensions_by_count: {supplement_summary.get('extensions_by_count', {})}",
                 "- wiley_supplement_report.csv: artifacts/wiley_supplement_report.csv",
+            ]
+        )
+    browser_supplement_summary = report.summary.get("browser_supplement_summary")
+    if isinstance(browser_supplement_summary, dict):
+        lines.extend(
+            [
+                "",
+                "## Wiley Browser-Assisted Supplementary Materials",
+                f"- articles_with_supplements: {browser_supplement_summary.get('articles_with_supplements', 0)}",
+                f"- total_supplement_links: {browser_supplement_summary.get('total_supplement_links', 0)}",
+                f"- downloaded_success: {browser_supplement_summary.get('downloaded_success', 0)}",
+                f"- downloaded_failed: {browser_supplement_summary.get('downloaded_failed', 0)}",
+                f"- manual_handoff_count: {report.summary.get('manual_handoff_count', 0)}",
+                f"- extensions_by_count: {browser_supplement_summary.get('extensions_by_count', {})}",
+                "- wiley_browser_supplement_report.csv: artifacts/wiley_browser_supplement_report.csv",
+                "- wiley_manual_handoff.csv: artifacts/wiley_manual_handoff.csv",
             ]
         )
     return "\n".join(lines) + "\n"
@@ -371,6 +405,22 @@ def _build_client_summary_md(report: RunReport) -> str:
                 "- wiley_supplement_report.csv: artifacts/wiley_supplement_report.csv",
             ]
         )
+    browser_supplement_summary = report.summary.get("browser_supplement_summary")
+    if isinstance(browser_supplement_summary, dict):
+        lines.extend(
+            [
+                "",
+                "## Wiley Browser-Assisted Supplementary Materials",
+                f"- articles_with_supplements: {browser_supplement_summary.get('articles_with_supplements', 0)}",
+                f"- total_supplement_links: {browser_supplement_summary.get('total_supplement_links', 0)}",
+                f"- downloaded_success: {browser_supplement_summary.get('downloaded_success', 0)}",
+                f"- downloaded_failed: {browser_supplement_summary.get('downloaded_failed', 0)}",
+                f"- manual_handoff_count: {report.summary.get('manual_handoff_count', 0)}",
+                f"- extensions_by_count: {browser_supplement_summary.get('extensions_by_count', {})}",
+                "- wiley_browser_supplement_report.csv: artifacts/wiley_browser_supplement_report.csv",
+                "- wiley_manual_handoff.csv: artifacts/wiley_manual_handoff.csv",
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -403,6 +453,12 @@ def _load_json_file(path: Path) -> dict[str, Any] | None:
         return None
     payload = json.loads(path.read_text(encoding="utf-8"))
     return payload if isinstance(payload, dict) else None
+
+
+def _count_nonempty_jsonl(path: Path) -> int:
+    if not path.exists():
+        return 0
+    return sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
 
 
 def _aggregate_inputs(doi_input_items: list[DOIInputItem]) -> dict[str, dict[str, Any]]:

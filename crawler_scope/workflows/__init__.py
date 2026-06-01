@@ -5,6 +5,9 @@ from .pdf_parse_workflow import parse_downloaded_pdfs_for_run
 from .report_workflow import report_run
 from .smoke_workflow import run_full_smoke_test
 from .wiley_supplement_workflow import collect_wiley_supplements_for_run
+from .wiley_authenticated_supplement_workflow import (
+    collect_wiley_supplements_with_session_for_run,
+)
 
 __all__ = [
     "resolve_dois_for_run",
@@ -13,5 +16,6 @@ __all__ = [
     "parse_downloaded_pdfs_for_run",
     "report_run",
     "run_full_smoke_test",
+    "collect_wiley_supplements_with_session_for_run",
     "collect_wiley_supplements_for_run",
 ]

@@ -1,4 +1,5 @@
 from .access import AccessDecision, AccessHint, AccessPolicy, InstitutionAccessProfile
+from .auth import BrowserSessionProfile, ManualHandoffRecord
 from .doi import DOIInputItem, DOIResolutionResult
 from .download import DownloadResult
 from .failure import FailureRecord
@@ -15,11 +16,13 @@ __all__ = [
     "AccessDecision",
     "AccessHint",
     "AccessPolicy",
+    "BrowserSessionProfile",
     "DOIInputItem",
     "DOIResolutionResult",
     "DownloadResult",
     "FailureRecord",
     "InstitutionAccessProfile",
+    "ManualHandoffRecord",
     "MetadataSourceResult",
     "ParseResult",
     "PaperRecord",

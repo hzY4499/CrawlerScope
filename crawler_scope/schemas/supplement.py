@@ -49,5 +49,6 @@ class SupplementSummary(BaseModel):
     downloaded_success: int = 0
     downloaded_failed: int = 0
     skipped: int = 0
+    manual_handoff_count: int = 0
     failures_by_type: dict[str, int] = Field(default_factory=dict)
     extensions_by_count: dict[str, int] = Field(default_factory=dict)

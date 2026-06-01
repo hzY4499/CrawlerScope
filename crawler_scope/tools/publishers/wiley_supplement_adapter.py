@@ -77,8 +77,7 @@ def discover_wiley_supplements(
         raise SupplementDiscoveryError("network_error", str(exc)) from exc
 
     html = response.text
-    lowered_html = html.lower()
-    if any(pattern in lowered_html for pattern in ACCESS_BLOCK_PATTERNS):
+    if has_wiley_access_challenge(html):
         raise SupplementDiscoveryError(
             "access_challenge",
             "Wiley page presented a CAPTCHA or access challenge.",
@@ -95,6 +94,18 @@ def discover_wiley_supplements(
             f"Wiley article page request failed with HTTP {response.status_code}.",
         )
 
+    return parse_wiley_supplements_from_html(
+        doi=doi,
+        article_url=str(response.url),
+        html=html,
+    )
+
+
+def parse_wiley_supplements_from_html(
+    doi: str,
+    article_url: str,
+    html: str,
+) -> list[SupplementRecord]:
     soup = BeautifulSoup(html, "html.parser")
     seen_urls: set[str] = set()
     records: list[SupplementRecord] = []
@@ -103,7 +114,7 @@ def discover_wiley_supplements(
         href = str(anchor.get("href") or "").strip()
         if not href:
             continue
-        absolute_url = urljoin(str(response.url), href)
+        absolute_url = urljoin(article_url, href)
         if absolute_url in seen_urls:
             continue
         if not _looks_like_supplement_link(anchor, absolute_url):
@@ -115,7 +126,7 @@ def discover_wiley_supplements(
         records.append(
             SupplementRecord(
                 doi=doi,
-                article_url=str(response.url),
+                article_url=article_url,
                 supplement_url=absolute_url,
                 label=_clean_text(anchor.get_text(" ", strip=True)),
                 filename=filename,
@@ -127,6 +138,11 @@ def discover_wiley_supplements(
         )
 
     return records
+
+
+def has_wiley_access_challenge(html: str) -> bool:
+    lowered_html = html.lower()
+    return any(pattern in lowered_html for pattern in ACCESS_BLOCK_PATTERNS)
 
 
 def download_supplement_file(
