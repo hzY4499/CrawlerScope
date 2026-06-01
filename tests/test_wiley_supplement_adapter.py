@@ -68,7 +68,7 @@ def test_discover_wiley_supplements_finds_multiple_formats_and_dedupes(monkeypat
 
 def test_discover_wiley_supplements_raises_on_access_challenge(monkeypatch) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, text="<html>Access denied captcha</html>", request=request)
+        return httpx.Response(403, text="<html>Just a moment... captcha</html>", request=request)
 
     transport = httpx.MockTransport(handler)
     monkeypatch.setattr(

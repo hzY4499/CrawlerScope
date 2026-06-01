@@ -43,6 +43,8 @@ ACCESS_BLOCK_PATTERNS = [
     "captcha",
     "access denied",
     "bot challenge",
+    "just a moment",
+    "cloudflare",
     "verify you are human",
     "human verification",
 ]
@@ -74,6 +76,13 @@ def discover_wiley_supplements(
     except httpx.RequestError as exc:
         raise SupplementDiscoveryError("network_error", str(exc)) from exc
 
+    html = response.text
+    lowered_html = html.lower()
+    if any(pattern in lowered_html for pattern in ACCESS_BLOCK_PATTERNS):
+        raise SupplementDiscoveryError(
+            "access_challenge",
+            "Wiley page presented a CAPTCHA or access challenge.",
+        )
     if response.status_code == 403:
         raise SupplementDiscoveryError("download_403", "Wiley access denied the article page request.")
     if response.status_code == 404:
@@ -84,14 +93,6 @@ def discover_wiley_supplements(
         raise SupplementDiscoveryError(
             f"http_{response.status_code}",
             f"Wiley article page request failed with HTTP {response.status_code}.",
-        )
-
-    html = response.text
-    lowered_html = html.lower()
-    if any(pattern in lowered_html for pattern in ACCESS_BLOCK_PATTERNS):
-        raise SupplementDiscoveryError(
-            "access_challenge",
-            "Wiley page presented a CAPTCHA or access challenge.",
         )
 
     soup = BeautifulSoup(html, "html.parser")
