@@ -11,6 +11,7 @@ data/cache/
 data/raw/
 data/parsed/
 data/reports/
+data/manual/
 
 # secrets
 secrets/

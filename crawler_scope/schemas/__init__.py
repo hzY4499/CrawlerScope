@@ -3,6 +3,7 @@ from .auth import BrowserSessionProfile, ManualHandoffRecord
 from .doi import DOIInputItem, DOIResolutionResult
 from .download import DownloadResult
 from .failure import FailureRecord
+from .manual import ManualDownloadTask, ManualDownloadedFile, ManualScanSummary
 from .metadata import MetadataSourceResult
 from .parse import ParseResult
 from .paper import PaperRecord
@@ -22,6 +23,9 @@ __all__ = [
     "DownloadResult",
     "FailureRecord",
     "InstitutionAccessProfile",
+    "ManualDownloadedFile",
+    "ManualDownloadTask",
+    "ManualScanSummary",
     "ManualHandoffRecord",
     "MetadataSourceResult",
     "ParseResult",

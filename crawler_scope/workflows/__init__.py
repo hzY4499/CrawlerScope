@@ -8,6 +8,10 @@ from .wiley_supplement_workflow import collect_wiley_supplements_for_run
 from .wiley_authenticated_supplement_workflow import (
     collect_wiley_supplements_with_session_for_run,
 )
+from .wiley_manual_workflow import (
+    prepare_wiley_manual_download_for_run,
+    scan_wiley_manual_downloads_for_run,
+)
 
 __all__ = [
     "resolve_dois_for_run",
@@ -18,4 +22,6 @@ __all__ = [
     "run_full_smoke_test",
     "collect_wiley_supplements_with_session_for_run",
     "collect_wiley_supplements_for_run",
+    "prepare_wiley_manual_download_for_run",
+    "scan_wiley_manual_downloads_for_run",
 ]

@@ -19,10 +19,12 @@ from crawler_scope.workflows import (
     download_open_pdfs_for_run,
     parse_downloaded_pdfs_for_run,
     plan_access_for_run,
+    prepare_wiley_manual_download_for_run,
     report_run,
     resolve_dois_for_run,
     run_full_smoke_test,
     collect_wiley_supplements_for_run,
+    scan_wiley_manual_downloads_for_run,
 )
 
 app = typer.Typer(help="CrawlerScope command line interface.")
@@ -384,6 +386,47 @@ def collect_wiley_supplements_browser(
         f"wiley_manual_handoff.csv: {run_dir / 'artifacts/wiley_manual_handoff.csv'}"
     )
     console.print(f"output_dir: {output_dir or (PROJECT_ROOT / 'data' / 'raw' / 'supplements')}")
+
+
+@app.command("prepare-wiley-manual-download")
+def prepare_wiley_manual_download(
+    run_id: str = typer.Option(..., "--run-id"),
+) -> None:
+    """Create a manual Wiley supplement download handoff for a run."""
+    try:
+        summary = prepare_wiley_manual_download_for_run(run_id)
+    except FileNotFoundError as exc:
+        console.print(str(exc))
+        raise typer.Exit(code=1) from exc
+
+    for key, value in summary.items():
+        console.print(f"{key}: {value}")
+
+
+@app.command("scan-wiley-manual-downloads")
+def scan_wiley_manual_downloads(
+    run_id: str = typer.Option(..., "--run-id"),
+) -> None:
+    """Scan locally downloaded Wiley supplement folders for a run."""
+    try:
+        summary = scan_wiley_manual_downloads_for_run(run_id)
+    except FileNotFoundError as exc:
+        console.print(str(exc))
+        raise typer.Exit(code=1) from exc
+
+    run_dir = RUN_STORE.get_run_dir(run_id)
+    for key, value in summary.items():
+        console.print(f"{key}: {value}")
+    console.print(
+        f"wiley_manual_downloaded_files.jsonl: {run_dir / 'artifacts/wiley_manual_downloaded_files.jsonl'}"
+    )
+    console.print(
+        f"wiley_manual_scan_summary.json: {run_dir / 'artifacts/wiley_manual_scan_summary.json'}"
+    )
+    console.print(
+        f"wiley_manual_scan_report.csv: {run_dir / 'artifacts/wiley_manual_scan_report.csv'}"
+    )
+    console.print(f"wiley_manual_missing.csv: {run_dir / 'artifacts/wiley_manual_missing.csv'}")
 
 
 def _build_task_spec(

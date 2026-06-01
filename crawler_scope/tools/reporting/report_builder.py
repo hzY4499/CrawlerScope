@@ -53,6 +53,13 @@ ARTIFACT_FILENAMES = [
     "wiley_browser_supplement_report.csv",
     "wiley_manual_handoff.jsonl",
     "wiley_manual_handoff.csv",
+    "wiley_manual_download_tasks.jsonl",
+    "wiley_manual_download_tasks.csv",
+    "wiley_manual_download_instructions.md",
+    "wiley_manual_downloaded_files.jsonl",
+    "wiley_manual_scan_summary.json",
+    "wiley_manual_scan_report.csv",
+    "wiley_manual_missing.csv",
 ]
 
 
@@ -75,6 +82,7 @@ class ArtifactSnapshot:
     supplement_summary: dict[str, Any] | None
     browser_supplement_summary: dict[str, Any] | None
     manual_handoff_count: int
+    manual_scan_summary: dict[str, Any] | None
     artifacts_present: dict[str, bool]
 
 
@@ -146,6 +154,9 @@ def _load_snapshot(artifacts_dir: Path) -> ArtifactSnapshot:
         ),
         manual_handoff_count=_count_nonempty_jsonl(
             artifacts_dir / "wiley_manual_handoff.jsonl"
+        ),
+        manual_scan_summary=_load_json_file(
+            artifacts_dir / "wiley_manual_scan_summary.json"
         ),
         artifacts_present=artifacts_present,
     )
@@ -302,6 +313,7 @@ def _build_summary(
         "supplement_summary": snapshot.supplement_summary,
         "browser_supplement_summary": snapshot.browser_supplement_summary,
         "manual_handoff_count": snapshot.manual_handoff_count,
+        "manual_scan_summary": snapshot.manual_scan_summary,
     }
 
 
@@ -356,6 +368,22 @@ def _build_final_report_md(report: RunReport) -> str:
                 f"- extensions_by_count: {browser_supplement_summary.get('extensions_by_count', {})}",
                 "- wiley_browser_supplement_report.csv: artifacts/wiley_browser_supplement_report.csv",
                 "- wiley_manual_handoff.csv: artifacts/wiley_manual_handoff.csv",
+            ]
+        )
+    manual_scan_summary = report.summary.get("manual_scan_summary")
+    if isinstance(manual_scan_summary, dict):
+        lines.extend(
+            [
+                "",
+                "## Wiley Manual Supplementary Materials",
+                f"- total_tasks: {manual_scan_summary.get('total_tasks', 0)}",
+                f"- articles_with_files: {manual_scan_summary.get('articles_with_files', 0)}",
+                f"- total_files: {manual_scan_summary.get('total_files', 0)}",
+                f"- files_by_extension: {manual_scan_summary.get('files_by_extension', {})}",
+                f"- missing_articles: {manual_scan_summary.get('missing_articles', 0)}",
+                "- wiley_manual_download_tasks.csv: artifacts/wiley_manual_download_tasks.csv",
+                "- wiley_manual_scan_report.csv: artifacts/wiley_manual_scan_report.csv",
+                "- wiley_manual_missing.csv: artifacts/wiley_manual_missing.csv",
             ]
         )
     return "\n".join(lines) + "\n"
@@ -419,6 +447,22 @@ def _build_client_summary_md(report: RunReport) -> str:
                 f"- extensions_by_count: {browser_supplement_summary.get('extensions_by_count', {})}",
                 "- wiley_browser_supplement_report.csv: artifacts/wiley_browser_supplement_report.csv",
                 "- wiley_manual_handoff.csv: artifacts/wiley_manual_handoff.csv",
+            ]
+        )
+    manual_scan_summary = report.summary.get("manual_scan_summary")
+    if isinstance(manual_scan_summary, dict):
+        lines.extend(
+            [
+                "",
+                "## Wiley Manual Supplementary Materials",
+                f"- total_tasks: {manual_scan_summary.get('total_tasks', 0)}",
+                f"- articles_with_files: {manual_scan_summary.get('articles_with_files', 0)}",
+                f"- total_files: {manual_scan_summary.get('total_files', 0)}",
+                f"- files_by_extension: {manual_scan_summary.get('files_by_extension', {})}",
+                f"- missing_articles: {manual_scan_summary.get('missing_articles', 0)}",
+                "- wiley_manual_download_tasks.csv: artifacts/wiley_manual_download_tasks.csv",
+                "- wiley_manual_scan_report.csv: artifacts/wiley_manual_scan_report.csv",
+                "- wiley_manual_missing.csv: artifacts/wiley_manual_missing.csv",
             ]
         )
     return "\n".join(lines) + "\n"
