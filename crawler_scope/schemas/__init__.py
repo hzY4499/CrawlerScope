@@ -6,7 +6,9 @@ from .metadata import MetadataSourceResult
 from .parse import ParseResult
 from .paper import PaperRecord
 from .quality import QualityReport, QualityRequirements
+from .requirement import RequirementSpec
 from .report import FinalFailureRecord, FinalPaperRecord, RunReport
+from .supplement import SupplementDownloadResult, SupplementRecord, SupplementSummary
 from .task_spec import TaskSpec, TaskType
 
 __all__ = [
@@ -23,9 +25,13 @@ __all__ = [
     "PaperRecord",
     "QualityReport",
     "QualityRequirements",
+    "RequirementSpec",
     "FinalPaperRecord",
     "FinalFailureRecord",
     "RunReport",
+    "SupplementRecord",
+    "SupplementDownloadResult",
+    "SupplementSummary",
     "TaskSpec",
     "TaskType",
 ]

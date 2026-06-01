@@ -20,6 +20,7 @@ from crawler_scope.workflows import (
     report_run,
     resolve_dois_for_run,
     run_full_smoke_test,
+    collect_wiley_supplements_for_run,
 )
 
 app = typer.Typer(help="CrawlerScope command line interface.")
@@ -298,6 +299,34 @@ def smoke_run(
     _print_summary("access_plan_summary", summary["access_plan_summary"])
     _print_summary("download_summary", summary["download_summary"])
     _print_summary("pdf_parse_summary", summary["pdf_parse_summary"])
+
+
+@app.command("collect-wiley-supplements")
+def collect_wiley_supplements(
+    run_id: str = typer.Option(..., "--run-id"),
+    output_dir: Path | None = typer.Option(None, "--output-dir"),
+    max_articles: int | None = typer.Option(None, "--max-articles"),
+    all_formats: bool = typer.Option(True, "--all-formats/--pdf-doc-only"),
+) -> None:
+    """Discover and download Wiley supplementary materials for a run."""
+    try:
+        summary = collect_wiley_supplements_for_run(
+            run_id,
+            output_dir=output_dir,
+            all_formats=all_formats,
+            max_articles=max_articles,
+        )
+    except FileNotFoundError as exc:
+        console.print(str(exc))
+        raise typer.Exit(code=1) from exc
+
+    run_dir = RUN_STORE.get_run_dir(run_id)
+    for key, value in summary.items():
+        console.print(f"{key}: {value}")
+    console.print(
+        f"wiley_supplement_report.csv: {run_dir / 'artifacts/wiley_supplement_report.csv'}"
+    )
+    console.print(f"output_dir: {output_dir or (PROJECT_ROOT / 'data' / 'raw' / 'supplements')}")
 
 
 def _build_task_spec(

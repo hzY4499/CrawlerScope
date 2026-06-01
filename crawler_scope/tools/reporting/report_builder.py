@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,6 +39,12 @@ ARTIFACT_FILENAMES = [
     "parse_results.jsonl",
     "pdf_parse_success.jsonl",
     "pdf_parse_failed.jsonl",
+    "wiley_supplement_records.jsonl",
+    "wiley_supplement_download_results.jsonl",
+    "wiley_supplement_success.jsonl",
+    "wiley_supplement_failed.jsonl",
+    "wiley_supplement_summary.json",
+    "wiley_supplement_report.csv",
 ]
 
 
@@ -57,6 +64,7 @@ class ArtifactSnapshot:
     access_decisions: list[AccessDecision]
     download_results: list[DownloadResult]
     parse_results: list[ParseResult]
+    supplement_summary: dict[str, Any] | None
     artifacts_present: dict[str, bool]
 
 
@@ -122,6 +130,7 @@ def _load_snapshot(artifacts_dir: Path) -> ArtifactSnapshot:
         access_decisions=_load_jsonl(artifacts_dir / "access_decisions.jsonl", AccessDecision),
         download_results=_load_jsonl(artifacts_dir / "download_results.jsonl", DownloadResult),
         parse_results=_load_jsonl(artifacts_dir / "parse_results.jsonl", ParseResult),
+        supplement_summary=_load_json_file(artifacts_dir / "wiley_supplement_summary.json"),
         artifacts_present=artifacts_present,
     )
 
@@ -274,6 +283,7 @@ def _build_summary(
         "status_counts": status_counts,
         "failure_type_counts": failure_counts,
         "artifacts_present": snapshot.artifacts_present,
+        "supplement_summary": snapshot.supplement_summary,
     }
 
 
@@ -300,6 +310,20 @@ def _build_final_report_md(report: RunReport) -> str:
     lines.extend(["", "## Artifacts Present"])
     for artifact_name, present in sorted(report.artifacts_present.items()):
         lines.append(f"- {artifact_name}: {'yes' if present else 'no'}")
+    supplement_summary = report.summary.get("supplement_summary")
+    if isinstance(supplement_summary, dict):
+        lines.extend(
+            [
+                "",
+                "## Supplementary Materials",
+                f"- articles_with_supplements: {supplement_summary.get('articles_with_supplements', 0)}",
+                f"- total_supplement_links: {supplement_summary.get('total_supplement_links', 0)}",
+                f"- downloaded_success: {supplement_summary.get('downloaded_success', 0)}",
+                f"- downloaded_failed: {supplement_summary.get('downloaded_failed', 0)}",
+                f"- extensions_by_count: {supplement_summary.get('extensions_by_count', {})}",
+                "- wiley_supplement_report.csv: artifacts/wiley_supplement_report.csv",
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -333,6 +357,20 @@ def _build_client_summary_md(report: RunReport) -> str:
         "- Manual rows: review or upload PDF",
         "- Institution-login rows: hand off to authenticated workflow later",
     ]
+    supplement_summary = report.summary.get("supplement_summary")
+    if isinstance(supplement_summary, dict):
+        lines.extend(
+            [
+                "",
+                "## Supplementary Materials",
+                f"- articles_with_supplements: {supplement_summary.get('articles_with_supplements', 0)}",
+                f"- total_supplement_links: {supplement_summary.get('total_supplement_links', 0)}",
+                f"- downloaded_success: {supplement_summary.get('downloaded_success', 0)}",
+                f"- downloaded_failed: {supplement_summary.get('downloaded_failed', 0)}",
+                f"- extensions_by_count: {supplement_summary.get('extensions_by_count', {})}",
+                "- wiley_supplement_report.csv: artifacts/wiley_supplement_report.csv",
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -358,6 +396,13 @@ def _load_jsonl(path: Path, model_class: type[T]) -> list[T]:
         if hasattr(model_class, "model_validate_json"):
             items.append(model_class.model_validate_json(line))  # type: ignore[attr-defined]
     return items
+
+
+def _load_json_file(path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else None
 
 
 def _aggregate_inputs(doi_input_items: list[DOIInputItem]) -> dict[str, dict[str, Any]]:
