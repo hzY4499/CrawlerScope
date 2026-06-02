@@ -60,3 +60,21 @@ def test_local_corpus_scanner_scans_multiple_formats_and_extracts_doi(
     assert by_name["notes.txt"].extension == ".txt"
     assert all(record.sha256 for record in records)
     assert all(record.size_bytes > 0 for record in records)
+
+
+def test_local_corpus_scanner_respects_existing_unified_tree_layout(
+    tmp_path: Path,
+) -> None:
+    root_dir = tmp_path / "Wiley" / "article_001"
+    supplement_dir = root_dir / "supplementaryfiles"
+    supplement_dir.mkdir(parents=True)
+    pdf_path = root_dir / "paper.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7")
+    zip_path = supplement_dir / "dataset.zip"
+    zip_path.write_bytes(b"PK\x03\x04zip")
+
+    records = scan_local_corpus(paper_pdf_dir=root_dir.parent.parent)
+    by_name = {record.filename: record for record in records}
+
+    assert by_name["paper.pdf"].file_role == "paper_pdf"
+    assert by_name["dataset.zip"].file_role == "supplement"

@@ -128,14 +128,14 @@ def _detect_file_role(
 ) -> str:
     normalized_parts = " ".join(part.lower() for part in path.parts)
     filename_lower = path.name.lower()
+    if "supplement" in normalized_parts or "supporting" in normalized_parts:
+        return "supplement"
     if role_hint == "supplement_dir":
         return "supplement"
     if role_hint == "paper_pdf_dir":
         if extension == ".pdf":
             return "paper_pdf"
         return "unknown"
-    if "supplement" in normalized_parts or "supporting" in normalized_parts:
-        return "supplement"
     if extension == ".pdf" and any(
         token in filename_lower or token in normalized_parts
         for token in ["paper", "main", "article"]
