@@ -3,6 +3,7 @@ from .auth import BrowserSessionProfile, ManualHandoffRecord
 from .doi import DOIInputItem, DOIResolutionResult
 from .download import DownloadResult
 from .failure import FailureRecord
+from .local_corpus import LocalCorpusMatchResult, LocalCorpusSummary, LocalFileRecord
 from .manual import ManualDownloadTask, ManualDownloadedFile, ManualScanSummary
 from .metadata import MetadataSourceResult
 from .parse import ParseResult
@@ -23,6 +24,9 @@ __all__ = [
     "DownloadResult",
     "FailureRecord",
     "InstitutionAccessProfile",
+    "LocalCorpusMatchResult",
+    "LocalCorpusSummary",
+    "LocalFileRecord",
     "ManualDownloadedFile",
     "ManualDownloadTask",
     "ManualScanSummary",

@@ -17,6 +17,7 @@ from crawler_scope.tools.storage import RunStore
 from crawler_scope.workflows import (
     collect_wiley_supplements_with_session_for_run,
     download_open_pdfs_for_run,
+    ingest_local_wiley_corpus_for_run,
     parse_downloaded_pdfs_for_run,
     plan_access_for_run,
     prepare_wiley_manual_download_for_run,
@@ -427,6 +428,40 @@ def scan_wiley_manual_downloads(
         f"wiley_manual_scan_report.csv: {run_dir / 'artifacts/wiley_manual_scan_report.csv'}"
     )
     console.print(f"wiley_manual_missing.csv: {run_dir / 'artifacts/wiley_manual_missing.csv'}")
+
+
+@app.command("ingest-local-wiley")
+def ingest_local_wiley(
+    run_id: str = typer.Option(..., "--run-id"),
+    paper_pdf_dir: Path | None = typer.Option(None, "--paper-pdf-dir"),
+    supplement_dir: Path | None = typer.Option(None, "--supplement-dir"),
+) -> None:
+    """Scan an existing local Wiley corpus and reconcile it with a run."""
+    try:
+        summary = ingest_local_wiley_corpus_for_run(
+            run_id,
+            paper_pdf_dir=paper_pdf_dir,
+            supplement_dir=supplement_dir,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        console.print(str(exc))
+        raise typer.Exit(code=1) from exc
+
+    run_dir = RUN_STORE.get_run_dir(run_id)
+    for key, value in summary.items():
+        console.print(f"{key}: {value}")
+    console.print(
+        f"local_wiley_file_inventory.csv: {run_dir / 'artifacts/local_wiley_file_inventory.csv'}"
+    )
+    console.print(
+        f"local_wiley_match_results.csv: {run_dir / 'artifacts/local_wiley_match_results.csv'}"
+    )
+    console.print(
+        f"local_wiley_unmatched_files.csv: {run_dir / 'artifacts/local_wiley_unmatched_files.csv'}"
+    )
+    console.print(
+        f"local_wiley_missing_articles.csv: {run_dir / 'artifacts/local_wiley_missing_articles.csv'}"
+    )
 
 
 def _build_task_spec(

@@ -12,6 +12,7 @@ data/raw/
 data/parsed/
 data/reports/
 data/manual/
+data/local_existing/
 
 # secrets
 secrets/

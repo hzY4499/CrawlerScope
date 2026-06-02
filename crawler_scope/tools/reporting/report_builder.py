@@ -60,6 +60,13 @@ ARTIFACT_FILENAMES = [
     "wiley_manual_scan_summary.json",
     "wiley_manual_scan_report.csv",
     "wiley_manual_missing.csv",
+    "local_wiley_file_inventory.jsonl",
+    "local_wiley_file_inventory.csv",
+    "local_wiley_match_results.jsonl",
+    "local_wiley_match_results.csv",
+    "local_wiley_unmatched_files.csv",
+    "local_wiley_missing_articles.csv",
+    "local_wiley_ingestion_summary.json",
 ]
 
 
@@ -83,6 +90,7 @@ class ArtifactSnapshot:
     browser_supplement_summary: dict[str, Any] | None
     manual_handoff_count: int
     manual_scan_summary: dict[str, Any] | None
+    local_ingestion_summary: dict[str, Any] | None
     artifacts_present: dict[str, bool]
 
 
@@ -157,6 +165,9 @@ def _load_snapshot(artifacts_dir: Path) -> ArtifactSnapshot:
         ),
         manual_scan_summary=_load_json_file(
             artifacts_dir / "wiley_manual_scan_summary.json"
+        ),
+        local_ingestion_summary=_load_json_file(
+            artifacts_dir / "local_wiley_ingestion_summary.json"
         ),
         artifacts_present=artifacts_present,
     )
@@ -314,6 +325,7 @@ def _build_summary(
         "browser_supplement_summary": snapshot.browser_supplement_summary,
         "manual_handoff_count": snapshot.manual_handoff_count,
         "manual_scan_summary": snapshot.manual_scan_summary,
+        "local_ingestion_summary": snapshot.local_ingestion_summary,
     }
 
 
@@ -384,6 +396,27 @@ def _build_final_report_md(report: RunReport) -> str:
                 "- wiley_manual_download_tasks.csv: artifacts/wiley_manual_download_tasks.csv",
                 "- wiley_manual_scan_report.csv: artifacts/wiley_manual_scan_report.csv",
                 "- wiley_manual_missing.csv: artifacts/wiley_manual_missing.csv",
+            ]
+        )
+    local_ingestion_summary = report.summary.get("local_ingestion_summary")
+    if isinstance(local_ingestion_summary, dict):
+        lines.extend(
+            [
+                "",
+                "## Local Existing Wiley Corpus",
+                f"- total_files_scanned: {local_ingestion_summary.get('total_files_scanned', 0)}",
+                f"- paper_pdf_files: {local_ingestion_summary.get('paper_pdf_files', 0)}",
+                f"- supplement_files: {local_ingestion_summary.get('supplement_files', 0)}",
+                f"- matched_articles: {local_ingestion_summary.get('matched_articles', 0)}",
+                f"- articles_with_paper_pdf: {local_ingestion_summary.get('articles_with_paper_pdf', 0)}",
+                f"- articles_with_supplements: {local_ingestion_summary.get('articles_with_supplements', 0)}",
+                f"- complete_articles: {local_ingestion_summary.get('complete_articles', 0)}",
+                f"- missing_articles: {local_ingestion_summary.get('missing_articles', 0)}",
+                f"- ambiguous_articles: {local_ingestion_summary.get('ambiguous_articles', 0)}",
+                f"- files_by_extension: {local_ingestion_summary.get('files_by_extension', {})}",
+                "- local_wiley_match_results.csv: artifacts/local_wiley_match_results.csv",
+                "- local_wiley_unmatched_files.csv: artifacts/local_wiley_unmatched_files.csv",
+                "- local_wiley_missing_articles.csv: artifacts/local_wiley_missing_articles.csv",
             ]
         )
     return "\n".join(lines) + "\n"
@@ -463,6 +496,27 @@ def _build_client_summary_md(report: RunReport) -> str:
                 "- wiley_manual_download_tasks.csv: artifacts/wiley_manual_download_tasks.csv",
                 "- wiley_manual_scan_report.csv: artifacts/wiley_manual_scan_report.csv",
                 "- wiley_manual_missing.csv: artifacts/wiley_manual_missing.csv",
+            ]
+        )
+    local_ingestion_summary = report.summary.get("local_ingestion_summary")
+    if isinstance(local_ingestion_summary, dict):
+        lines.extend(
+            [
+                "",
+                "## Local Existing Wiley Corpus",
+                f"- total_files_scanned: {local_ingestion_summary.get('total_files_scanned', 0)}",
+                f"- paper_pdf_files: {local_ingestion_summary.get('paper_pdf_files', 0)}",
+                f"- supplement_files: {local_ingestion_summary.get('supplement_files', 0)}",
+                f"- matched_articles: {local_ingestion_summary.get('matched_articles', 0)}",
+                f"- articles_with_paper_pdf: {local_ingestion_summary.get('articles_with_paper_pdf', 0)}",
+                f"- articles_with_supplements: {local_ingestion_summary.get('articles_with_supplements', 0)}",
+                f"- complete_articles: {local_ingestion_summary.get('complete_articles', 0)}",
+                f"- missing_articles: {local_ingestion_summary.get('missing_articles', 0)}",
+                f"- ambiguous_articles: {local_ingestion_summary.get('ambiguous_articles', 0)}",
+                f"- files_by_extension: {local_ingestion_summary.get('files_by_extension', {})}",
+                "- local_wiley_match_results.csv: artifacts/local_wiley_match_results.csv",
+                "- local_wiley_unmatched_files.csv: artifacts/local_wiley_unmatched_files.csv",
+                "- local_wiley_missing_articles.csv: artifacts/local_wiley_missing_articles.csv",
             ]
         )
     return "\n".join(lines) + "\n"
