@@ -453,7 +453,7 @@ def download_with_context_request(
             timeout_ms=timeout_ms,
             max_bytes=max_bytes,
         )
-        if fallback.get("status") == "success":
+        if fallback.get("status") in {"success", "skipped"}:
             fallback["request_fallback_from"] = failed["error_type"]
             return fallback
         failed["browser_fallback_status"] = fallback.get("status")
@@ -503,7 +503,7 @@ def download_with_context_request(
             timeout_ms=timeout_ms,
             max_bytes=max_bytes,
         )
-        if fallback.get("status") == "success":
+        if fallback.get("status") in {"success", "skipped"}:
             fallback["request_fallback_from"] = failed["error_type"]
             return fallback
         failed["browser_fallback_status"] = fallback.get("status")
@@ -697,6 +697,27 @@ def materialized_browser_download(
         existing = existing_casefold_path(target_dir, expected_filename)
         if existing is not None and existing.name.casefold() not in before_names:
             sha256 = sha256_file(existing)
+            hashes = {
+                digest: path
+                for digest, path in existing_hashes(target_dir).items()
+                if path.resolve() != existing.resolve()
+            }
+            if sha256 in hashes:
+                try:
+                    existing.unlink()
+                except Exception:
+                    pass
+                return {
+                    "doi": doi,
+                    "supplement_url": link,
+                    "expected_filename": expected_filename,
+                    "status": "skipped",
+                    "skip_reason": "duplicate_sha256",
+                    "file_path": str(hashes[sha256]),
+                    "sha256": sha256,
+                    "size_bytes": hashes[sha256].stat().st_size,
+                    "completed_at": now_iso(),
+                }
             return {
                 "doi": doi,
                 "supplement_url": link,

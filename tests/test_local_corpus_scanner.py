@@ -127,3 +127,24 @@ def test_local_corpus_scanner_treats_non_paper_files_in_manifest_dir_as_suppleme
     assert by_name["anie202502563-SuppMat.docx"].file_role == "supplement"
     assert by_name["anie202502563-SuppMat.docx"].detected_doi == "10.1002/anie.202502563"
     assert by_name["anie202502563-SuppMat.docx"].matched_by == "manifest"
+
+
+def test_local_corpus_scanner_detects_paper_all_wiley_layout_paper_id(
+    tmp_path: Path,
+) -> None:
+    safe_dir = tmp_path / "10.1002_1521-3765_20010316_7_6_1295_aid-chem1295_3.0.co_2-s"
+    supplement_dir = safe_dir / "supplementaryfiles"
+    supplement_dir.mkdir(parents=True)
+    main_pdf = safe_dir / f"{safe_dir.name}.pdf"
+    main_pdf.write_bytes(b"%PDF-1.7")
+    supplement_path = supplement_dir / "supporting_information.pdf"
+    supplement_path.write_bytes(b"%PDF-1.7 supplement")
+
+    records = scan_local_corpus(paper_pdf_dir=tmp_path)
+    by_name = {record.filename: record for record in records}
+    expected_paper_id = f"paper_{safe_dir.name}"
+
+    assert by_name[main_pdf.name].file_role == "paper_pdf"
+    assert by_name[main_pdf.name].detected_paper_id == expected_paper_id
+    assert by_name["supporting_information.pdf"].file_role == "supplement"
+    assert by_name["supporting_information.pdf"].detected_paper_id == expected_paper_id

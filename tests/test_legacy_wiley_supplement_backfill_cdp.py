@@ -4,6 +4,7 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 
 SCRIPT_PATH = (
@@ -142,3 +143,50 @@ def test_existing_record_file_for_link_uses_legacy_relpath(tmp_path: Path) -> No
     )
 
     assert existing == supplement_path
+
+
+def test_download_with_context_request_returns_skipped_browser_fallback(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    existing = tmp_path / "already-there.docx"
+    existing.write_bytes(b"existing")
+
+    class FakeResponse:
+        status = 403
+        headers = {"content-type": "text/html"}
+        url = "https://onlinelibrary.wiley.com/action/downloadSupplement"
+
+    class FakeRequest:
+        def get(self, *_args, **_kwargs):
+            return FakeResponse()
+
+    fake_context = SimpleNamespace(request=FakeRequest())
+    fake_page = SimpleNamespace(
+        evaluate=lambda _expr: "Mozilla/5.0",
+        url="https://onlinelibrary.wiley.com/doi/10.1002/example",
+    )
+
+    def fake_browser_fallback(*_args, **_kwargs):
+        return {
+            "status": "skipped",
+            "skip_reason": "duplicate_sha256",
+            "file_path": str(existing),
+        }
+
+    monkeypatch.setattr(backfill, "download_with_browser_event", fake_browser_fallback)
+
+    result = backfill.download_with_context_request(
+        fake_context,
+        fake_page,
+        "10.1002/example",
+        "https://onlinelibrary.wiley.com/action/downloadSupplement?"
+        "doi=10.1002%2Fexample&file=new-file.docx",
+        tmp_path,
+        timeout_ms=1000,
+        max_bytes=None,
+    )
+
+    assert result["status"] == "skipped"
+    assert result["skip_reason"] == "duplicate_sha256"
+    assert result["request_fallback_from"] == "download_403"

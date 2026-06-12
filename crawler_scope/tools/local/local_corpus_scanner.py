@@ -226,10 +226,12 @@ def _extract_doi_from_pdf(path: Path) -> str | None:
 
 
 def _detect_paper_id(path: Path, file_role: str) -> str | None:
+    if file_role == "paper_pdf" and path.stem == path.parent.name:
+        return f"paper_{path.parent.name}"
     if file_role == "paper_pdf" and path.stem.lower() in {"paper", "article", "main"}:
         return path.parent.name or None
     if file_role == "supplement":
         parent_name = path.parent.name.lower()
         if parent_name in {"supplementaryfiles", "supplementary", "supplements"}:
-            return path.parent.parent.name or None
+            return f"paper_{path.parent.parent.name}" if path.parent.parent.name else None
     return None
