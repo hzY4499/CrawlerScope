@@ -106,3 +106,24 @@ def test_local_corpus_scanner_uses_record_json_manifest_for_complex_wiley_doi(
     assert by_name["paper.pdf"].matched_by == "manifest"
     assert by_name["supporting_information.pdf"].detected_doi == complex_doi.lower()
     assert by_name["supporting_information.pdf"].matched_by == "manifest"
+
+
+def test_local_corpus_scanner_treats_non_paper_files_in_manifest_dir_as_supplements(
+    tmp_path: Path,
+) -> None:
+    safe_dir = tmp_path / "10.1002_anie.202502563"
+    safe_dir.mkdir(parents=True)
+    (safe_dir / "record.json").write_text(
+        json.dumps({"doi": "10.1002/anie.202502563"}),
+        encoding="utf-8",
+    )
+    (safe_dir / "paper.pdf").write_bytes(b"%PDF-1.7")
+    (safe_dir / "anie202502563-SuppMat.docx").write_bytes(b"docx")
+
+    records = scan_local_corpus(paper_pdf_dir=tmp_path)
+    by_name = {record.filename: record for record in records}
+
+    assert by_name["paper.pdf"].file_role == "paper_pdf"
+    assert by_name["anie202502563-SuppMat.docx"].file_role == "supplement"
+    assert by_name["anie202502563-SuppMat.docx"].detected_doi == "10.1002/anie.202502563"
+    assert by_name["anie202502563-SuppMat.docx"].matched_by == "manifest"

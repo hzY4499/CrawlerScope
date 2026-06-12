@@ -13,6 +13,7 @@ data/parsed/
 data/reports/
 data/manual/
 data/local_existing/
+.chrome_debug_data/
 
 # secrets
 secrets/

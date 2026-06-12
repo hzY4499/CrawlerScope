@@ -131,6 +131,11 @@ def _detect_file_role(
     filename_lower = path.name.lower()
     if "supplement" in normalized_parts or "supporting" in normalized_parts:
         return "supplement"
+    if (
+        (path.parent / "record.json").exists()
+        and filename_lower not in {"paper.pdf", "record.json"}
+    ):
+        return "supplement"
     if role_hint == "supplement_dir":
         return "supplement"
     if role_hint == "paper_pdf_dir":
