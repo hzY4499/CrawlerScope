@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import mimetypes
 import re
 from pathlib import Path
@@ -145,6 +146,10 @@ def _detect_file_role(
 
 
 def _detect_doi(path: Path) -> tuple[str | None, str]:
+    manifest_doi = _extract_manifest_doi(path)
+    if manifest_doi is not None:
+        return manifest_doi, "manifest"
+
     candidates: list[tuple[str, str]] = []
     for text, source in _iter_doi_source_strings(path):
         direct = _extract_standard_doi(text)
@@ -186,6 +191,21 @@ def _extract_safe_doi(text: str) -> str | None:
     if not separator:
         return None
     return f"{prefix}/{suffix}"
+
+
+def _extract_manifest_doi(path: Path) -> str | None:
+    for directory in [path.parent, *path.parents]:
+        manifest_path = directory / "record.json"
+        if not manifest_path.exists() or not manifest_path.is_file():
+            continue
+        try:
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        doi = data.get("doi")
+        if isinstance(doi, str) and doi.strip():
+            return doi.strip().lower()
+    return None
 
 
 def _extract_doi_from_pdf(path: Path) -> str | None:

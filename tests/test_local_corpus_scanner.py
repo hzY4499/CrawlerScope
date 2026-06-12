@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import fitz
@@ -78,3 +79,30 @@ def test_local_corpus_scanner_respects_existing_unified_tree_layout(
 
     assert by_name["paper.pdf"].file_role == "paper_pdf"
     assert by_name["dataset.zip"].file_role == "supplement"
+
+
+def test_local_corpus_scanner_uses_record_json_manifest_for_complex_wiley_doi(
+    tmp_path: Path,
+) -> None:
+    complex_doi = "10.1002/1439-7641(20020816)3:8<686::aid-cphc686>3.0.co;2-g"
+    safe_dir = (
+        tmp_path
+        / "10.1002_1439-7641_20020816_3_8_686_aid-cphc686_3.0.co_2-g"
+    )
+    safe_dir.mkdir(parents=True)
+    (safe_dir / "record.json").write_text(
+        json.dumps({"doi": complex_doi}),
+        encoding="utf-8",
+    )
+    pdf_path = safe_dir / "paper.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7")
+    supplement_path = safe_dir / "supporting_information.pdf"
+    supplement_path.write_bytes(b"%PDF-1.7 supplement")
+
+    records = scan_local_corpus(paper_pdf_dir=tmp_path)
+    by_name = {record.filename: record for record in records}
+
+    assert by_name["paper.pdf"].detected_doi == complex_doi.lower()
+    assert by_name["paper.pdf"].matched_by == "manifest"
+    assert by_name["supporting_information.pdf"].detected_doi == complex_doi.lower()
+    assert by_name["supporting_information.pdf"].matched_by == "manifest"

@@ -44,7 +44,9 @@ def match_local_files_to_run(
     local_files: list[LocalFileRecord],
 ) -> tuple[list[LocalFileRecord], list[LocalCorpusMatchResult], LocalCorpusSummary]:
     run_papers = load_run_papers(run_id)
-    papers_by_doi = {paper.doi: paper for paper in run_papers}
+    papers_by_doi = {
+        _canonical_doi(paper.doi): paper for paper in run_papers if paper.doi
+    }
     papers_by_paper_id = {paper.paper_id: paper for paper in run_papers}
     results_by_key = {
         _result_key(paper.doi, paper.paper_id): LocalCorpusMatchResult(
@@ -125,8 +127,9 @@ def _match_record(
     papers_by_doi: dict[str, PaperRecord],
     papers_by_paper_id: dict[str, PaperRecord],
 ) -> tuple[LocalFileRecord, PaperRecord | None, str | None]:
-    if record.detected_doi and record.detected_doi in papers_by_doi:
-        paper = papers_by_doi[record.detected_doi]
+    detected_doi = _canonical_doi(record.detected_doi)
+    if detected_doi and detected_doi in papers_by_doi:
+        paper = papers_by_doi[detected_doi]
         return (
             record.model_copy(
                 update={
@@ -154,8 +157,9 @@ def _match_record(
         )
 
     folder_doi = _find_folder_doi(Path(record.file_path))
-    if folder_doi and folder_doi in papers_by_doi:
-        paper = papers_by_doi[folder_doi]
+    canonical_folder_doi = _canonical_doi(folder_doi)
+    if canonical_folder_doi and canonical_folder_doi in papers_by_doi:
+        paper = papers_by_doi[canonical_folder_doi]
         return (
             record.model_copy(
                 update={
@@ -188,6 +192,13 @@ def _restore_safe_doi(text: str) -> str | None:
     if not separator:
         return None
     return f"{prefix}/{suffix}"
+
+
+def _canonical_doi(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    return normalized or None
 
 
 def _load_jsonl(path: Path, model_class):
